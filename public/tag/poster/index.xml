@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Poster | Creator's Blog (Hugo Theme)</title><link>http://localhost:1313/tag/poster/</link><atom:link href="http://localhost:1313/tag/poster/index.xml" rel="self" type="application/rss+xml"/><description>Poster</description><generator>Hugo Blox Builder (https://hugoblox.com)</generator><language>en-us</language><lastBuildDate>Wed, 25 Oct 2023 00:00:00 +0000</lastBuildDate><image><url>http://localhost:1313/media/icon_hu68170e94a17a2a43d6dcb45cf0e8e589_3079_512x512_fill_lanczos_center_3.png</url><title>Poster</title><link>http://localhost:1313/tag/poster/</link></image><item><title>🎙️ Flash-talk at European AI for Fundamental Physics Conference</title><link>http://localhost:1313/blog/eucaif/</link><pubDate>Wed, 25 Oct 2023 00:00:00 +0000</pubDate><guid>http://localhost:1313/blog/eucaif/</guid><description>&lt;p>I had the opportunity to give a flash-talk at the European AI for Fundamental Physics Conference in Amsterdam, where I shared my work on using an Active Search approach to explore the parameter space of Beyond Standard Model (BSM) theories.&lt;/p>
+&lt;p>Here you can see how it went!&lt;/p>
+&lt;iframe width="560" height="315" src="https://www.youtube.com/embed/xeEQRdjIwHg?si=OHTtbddCIWSLtO1d" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>&lt;/iframe>
+&lt;p>I needed to compress it into just three minutes, but I was happy with how the talk went. It was the first time I felt satisfied with both the delivery and the results of my project. I also presented this poster,&lt;/p>
+&lt;p>
+&lt;figure >
+&lt;div class="flex justify-center ">
+&lt;div class="w-100" >&lt;img alt="Poster" srcset="
+/blog/eucaif/poster_hued89c809cc745df9fee7a7219d86cc2a_1824653_4a504f03b087112296a77f4d742883b0.webp 400w,
+/blog/eucaif/poster_hued89c809cc745df9fee7a7219d86cc2a_1824653_e9ae26ceb4f3450e847fade8bdae61ae.webp 760w,
+/blog/eucaif/poster_hued89c809cc745df9fee7a7219d86cc2a_1824653_1200x1200_fit_q95_h2_lanczos_3.webp 1200w"
+src="http://localhost:1313/blog/eucaif/poster_hued89c809cc745df9fee7a7219d86cc2a_1824653_4a504f03b087112296a77f4d742883b0.webp"
+width="760"
+height="536"
+loading="lazy" data-zoomable />&lt;/div>
+&lt;/div>&lt;/figure>
+&lt;/p>
+&lt;p>There was good feed back, specially on the needs of different functionalities on parameter scan methods. When dealing with multi-objectives is hard to define the priority of each objectie in a single &amp;ldquo;scalarised&amp;rdquo; policy. This gave me some ideas on adding this prioritisations of objectives in the library Python library I am writing for Active Search Methods for Parameter Scans.&lt;/p>
+&lt;h1 id="abstract">Abstract&lt;/h1>
+&lt;p>Phenomenological analyses in beyond the Standard Model (BSM) theories assess the viability of BSM models by testing them against current experimental data, aiming to explain new physics signals. However, these analyses face significant challenges. The parameter space in BSM models are commonly large and high dimensional. The regions capable of accommodating a combination of experimental results, is often sparse and potentially disconnected. Moreover, the numerical evaluation for each configuration computationally expensive.&lt;/p>
+&lt;p>To address these challenges, our work introduces a batched Multi-Objective Constrained Active Search approach. Physical observables and statistical tests, such as particle masses and $\chi^2$-tests from experimental data respectively, are defined as the objectives with pre-defined constraints. We use probabilistic models as surrogates for the objectives to enhance sample efficiency, and a volume-based active sampling strategy, that uses the surrogates to effectively characterise and populate satisfactory regions within the parameter space of BSM models.&lt;/p>
+&lt;p>We employ the algorithm with the B-L SSM model to accommodate results an observed signal at $\sim 95 \mathrm{GeV}$ in neutral scalar searches in $h \rightarrow \gamma \gamma$ channel. We found that the algorithm efficiently identifies satisfactory regions in the parameter space of the B-L SSM model, improving previous studies in this model. We conclude by outlining future directions for this research, and sharing the developed tools for the community&amp;rsquo;s use.&lt;/p></description></item></channel></rss>
