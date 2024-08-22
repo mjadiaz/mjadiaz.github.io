@@ -23,10 +23,9 @@ I needed to compress it into just three minutes, but I was happy with how the ta
 
 ![Poster](poster.png)
 
-There was good feed back, specially on the needs of different functionalities on parameter scan methods. When dealing with multi-objectives is hard to define the priority of each objectie in a single "scalarised" policy. This gave me some ideas on adding this prioritisations of objectives in the library Python library I am writing for Active Search Methods for Parameter Scans.
+I received some great feedback, particularly on the need for different functionalities in parameter scan methods. One key challenge discussed was how difficult it can be to prioritise multiple objectives within a single “scalarised” policy. This gave me some new ideas about incorporating objective prioritisation into the Python library I’m developing for Active Search Methods in Parameter Scans.
 
-
-# Abstract
+# Abstract for the conference
 Phenomenological analyses in beyond the Standard Model (BSM) theories assess the viability of BSM models by testing them against current experimental data, aiming to explain new physics signals. However, these analyses face significant challenges. The parameter space in BSM models are commonly large and high dimensional. The regions capable of accommodating a combination of experimental results, is often sparse and potentially disconnected. Moreover, the numerical evaluation for each configuration computationally expensive.
 
 To address these challenges, our work introduces a batched Multi-Objective Constrained Active Search approach. Physical observables and statistical tests, such as particle masses and $\chi^2$-tests from experimental data respectively, are defined as the objectives with pre-defined constraints. We use probabilistic models as surrogates for the objectives to enhance sample efficiency, and a volume-based active sampling strategy, that uses the surrogates to effectively characterise and populate satisfactory regions within the parameter space of BSM models.
