@@ -15,32 +15,8 @@ npm run preview  # serve the built site
 The site is a **user site**: it lives at the repo `mjadiaz/mjadiaz.github.io`
 and is served from the domain root, so no `base` path is needed.
 
-Every push to `main` runs `.github/workflows/deploy.yml` and publishes. Pages is
-already set to **Settings → Pages → Source: GitHub Actions** from the previous
-Hugo site, so there is nothing to change there.
-
-### Replacing the old Hugo site
-
-Do not delete the repo — a user site *must* be named `mjadiaz.github.io`, and
-deleting it throws away the history for no gain. Replace its contents instead,
-keeping the old commits underneath:
-
-```sh
-git remote add origin git@github.com:mjadiaz/mjadiaz.github.io.git
-git fetch origin
-git reset --soft origin/main   # keep history, stage this tree as the new state
-git add -A
-git commit -m "Replace Hugo site with Astro site"
-git push origin main
-```
-
-`git reset --soft` leaves the working tree alone and re-points HEAD at the old
-history, so the commit records "delete every Hugo file, add every Astro file" in
-one step. No force-push, nothing lost.
-
-The old `.github/workflows/publish.yaml` (Hugo) and `import-notebooks.yml` are
-deleted by that commit — important, because two workflows both claiming the
-`pages` concurrency group will fight over the deployment.
+Every push to `main` runs `.github/workflows/deploy.yml` and publishes, with
+**Settings → Pages → Source** set to **GitHub Actions**.
 
 If you ever move this to a project repo (`github.com/mjadiaz/<name>`), set
 `base: '/<name>'` in `astro.config.mjs` — otherwise every asset 404s.
