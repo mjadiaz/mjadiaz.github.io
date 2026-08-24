@@ -1,0 +1,50 @@
+---
+import Base from '../layouts/Base.astro';
+import { splitEvents } from '../data/events';
+import { site } from '../data/site';
+
+const { upcoming, past } = splitEvents();
+---
+
+<Base title="Events" description={`Talks, posters and courses — ${site.name}.`} bar={`${site.short} / events`}>
+  <p class="eyebrow">Conferences · posters · courses</p>
+  <h1>Events</h1>
+
+  <section class="section" style="margin-top:38px">
+    <div class="section__head">
+      <h2>Upcoming</h2>
+      <span class="section__more meta">{upcoming.length}</span>
+    </div>
+    {upcoming.length === 0 ? (
+      <p class="empty">Nothing scheduled yet — check back, or get in touch.</p>
+    ) : (
+      upcoming.map((e) => (
+        <div class="ev ev--future">
+          <div class="ev__when"><span class="dot"></span>{e.display ?? e.date}</div>
+          <div>
+            <p class="ev__title">{e.href ? <a href={e.href}>{e.title}</a> : e.title}</p>
+            {e.what && <p class="ev__what"><strong>{e.kind}</strong> — {e.what}</p>}
+            {e.where && <p class="ev__where">{e.where}</p>}
+          </div>
+        </div>
+      ))
+    )}
+  </section>
+
+  <section class="section">
+    <div class="section__head">
+      <h2>Attended</h2>
+      <span class="section__more meta">{past.length}</span>
+    </div>
+    {past.map((e) => (
+      <div class="ev">
+        <div class="ev__when">{e.display ?? e.date}</div>
+        <div>
+          <p class="ev__title">{e.href ? <a href={e.href}>{e.title}</a> : e.title}</p>
+          {e.what && <p class="ev__what"><strong>{e.kind}</strong> — {e.what}</p>}
+          {e.where && <p class="ev__where">{e.where}</p>}
+        </div>
+      </div>
+    ))}
+  </section>
+</Base>

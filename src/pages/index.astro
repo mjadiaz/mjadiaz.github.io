@@ -1,0 +1,147 @@
+---
+import { Image } from 'astro:assets';
+import Icon from '../components/Icon.astro';
+import Base from '../layouts/Base.astro';
+import PostCard from '../components/PostCard.astro';
+import { site } from '../data/site';
+import { publications, ME } from '../data/publications';
+import { splitEvents } from '../data/events';
+import { getPosts } from '../lib/posts';
+import me from '../assets/me.jpg';
+
+const posts = (await getPosts()).slice(0, 3);
+const papers = publications.slice(0, 3);
+const { upcoming, past } = splitEvents();
+const recentEvents = past.slice(0, 3);
+---
+
+<Base title={site.name} bar={site.short} wide>
+  <section class="hero">
+    <Image
+      class="hero__photo"
+      src={me}
+      alt={`${site.name}, by the Rhine in Cologne`}
+      widths={[220, 440]}
+      sizes="(max-width: 700px) 150px, 210px"
+      loading="eager"
+    />
+
+    <div class="hero__text">
+      <p class="eyebrow">Postdoctoral researcher</p>
+      <h1>{site.name}</h1>
+      {site.bio.map((para, i) => (
+        <p class={i === 0 ? 'lead' : undefined}>{para}</p>
+      ))}
+      <div class="profiles">
+        {site.profiles.map((l) => (
+          <a class="profile" href={l.href} target="_blank" rel="noopener">
+            <Icon name={l.icon} />
+            {l.label}
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section__head">
+      <h2>Latest posts</h2>
+      <a class="section__more" href="/blog">All posts →</a>
+    </div>
+    {posts.length === 0 ? (
+      <p class="empty">Nothing published yet.</p>
+    ) : (
+      <div class="stack">{posts.map((post) => <PostCard post={post} />)}</div>
+    )}
+  </section>
+
+  <section class="section">
+    <div class="section__head">
+      <h2>Selected publications</h2>
+      <a class="section__more" href="/publications">All publications →</a>
+    </div>
+    {papers.map((p) => (
+      <div class="pub">
+        <p class="pub__title">{p.title}</p>
+        <p class="pub__authors">
+          {p.authors.map((a, i) => (
+            <>
+              <span class={a === ME ? 'me' : undefined}>{a}</span>{i < p.authors.length - 1 ? ', ' : ''}
+            </>
+          ))}
+        </p>
+        <p class="pub__venue">
+          {p.status ? `${p.status} at ${p.venue}` : p.venue} · {p.year}
+        </p>
+      </div>
+    ))}
+  </section>
+
+  <section class="section">
+    <div class="section__head">
+      <h2>Events</h2>
+      <a class="section__more" href="/events">All events →</a>
+    </div>
+
+    <h3 style="font-size:0.95rem;margin-top:0">Upcoming</h3>
+    {upcoming.length === 0 ? (
+      <p class="empty">Nothing scheduled yet.</p>
+    ) : (
+      upcoming.map((e) => (
+        <div class="ev ev--future">
+          <div class="ev__when"><span class="dot"></span>{e.display ?? e.date}</div>
+          <div>
+            <p class="ev__title">{e.title}</p>
+            {e.what && <p class="ev__what">{e.kind} — {e.what}</p>}
+            {e.where && <p class="ev__where">{e.where}</p>}
+          </div>
+        </div>
+      ))
+    )}
+
+    <h3 style="font-size:0.95rem">Recently attended</h3>
+    {recentEvents.map((e) => (
+      <div class="ev">
+        <div class="ev__when">{e.display ?? e.date}</div>
+        <div>
+          <p class="ev__title">{e.title}</p>
+          {e.what && <p class="ev__what">{e.kind} — {e.what}</p>}
+          {e.where && <p class="ev__where">{e.where}</p>}
+        </div>
+      </div>
+    ))}
+  </section>
+</Base>
+
+<style>
+  .section { max-width: 780px; }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 210px;
+    justify-content: start;
+    gap: 34px;
+    align-items: start;
+  }
+  /* the page is wide so the portrait sits beside the intro rather than
+     eating into it — but the bio itself keeps a readable measure */
+  .hero__text { grid-column: 1; grid-row: 1; min-width: 0; max-width: 60ch; }
+  .hero__photo {
+    grid-column: 2;
+    grid-row: 1;
+    width: 210px;
+    aspect-ratio: 1 / 1.08;
+    object-fit: cover;
+    object-position: 50% 22%;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--panel);
+  }
+
+  @media (max-width: 700px) {
+    .hero { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+    .hero__text, .hero__photo { grid-column: 1; }
+    .hero__text { grid-row: 2; }
+    .hero__photo { grid-row: 1; width: 150px; }
+  }
+</style>

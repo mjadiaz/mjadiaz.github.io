@@ -1,0 +1,57 @@
+---
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import { site } from '../data/site';
+import { projects, education } from '../data/research';
+---
+
+<Base title="About" description={site.description} bar={`${site.short} / about`}>
+  <p class="eyebrow">About</p>
+  <h1>{site.name}</h1>
+
+  {site.bio.map((para, i) => <p class={i === 0 ? 'lead' : undefined}>{para}</p>)}
+
+  <section class="section">
+    <div class="section__head"><h2>Research</h2></div>
+    {projects.map((p) => (
+      <div class="ev">
+        <div class="ev__when">{p.period}</div>
+        <div>
+          <p class="ev__title">{p.title}</p>
+          <p class="ev__what">{p.summary}</p>
+          {p.with && <p class="ev__where">with {p.with}</p>}
+        </div>
+      </div>
+    ))}
+  </section>
+
+  <section class="section">
+    <div class="section__head"><h2>Education</h2></div>
+    {education.map((e) => (
+      <div class="ev">
+        <div class="ev__when">{e.period}</div>
+        <div>
+          <p class="ev__title">{e.what}</p>
+          <p class="ev__where">{e.where}</p>
+        </div>
+      </div>
+    ))}
+  </section>
+
+  <section class="section">
+    <div class="section__head"><h2>Elsewhere</h2></div>
+    <div class="profiles">
+      {[...site.profiles, ...site.extras].map((l) => (
+        <a
+          class="profile"
+          href={l.href}
+          target={l.href.startsWith('http') ? '_blank' : undefined}
+          rel={l.href.startsWith('http') ? 'noopener' : undefined}
+        >
+          <Icon name={l.icon} />
+          {l.label}
+        </a>
+      ))}
+    </div>
+  </section>
+</Base>

@@ -1,0 +1,491 @@
+---
+/**
+ * Space-colonization growth: a few somas send dendrites into a cloud of
+ * attractors, then signal pulses travel out along the branches.
+ * Purely decorative — hidden from a11y tree, pauses off-screen, honours
+ * prefers-reduced-motion (renders the finished tree, skips the animation).
+ */
+---
+
+<div id="growth-bg" aria-hidden="true">
+  <canvas data-tree></canvas>
+  <canvas data-pulse></canvas>
+</div>
+
+<style>
+  #growth-bg canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+</style>
+
+<script>
+  const host = document.getElementById('growth-bg');
+  if (host) {
+    const treeCanvas = host.querySelector('[data-tree]') as HTMLCanvasElement;
+    const pulseCanvas = host.querySelector('[data-pulse]') as HTMLCanvasElement;
+    const tctx = treeCanvas.getContext('2d')!;
+    const pctx = pulseCanvas.getContext('2d')!;
+
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    /* ── tunables ──────────────────────────────────────────────────── */
+    const ATTRACT = 94; // how far a node can "see" an attractor
+    const KILL = 11; // attractor is consumed within this radius
+    const SEG = 4.4; // length of one growth segment
+    const JITTER = 0.16; // wobble, so branches aren't dead straight
+    const MIN_ATTR_GAP = 13; // spacing of the attractor cloud
+    const MAX_NODES = 16000; // ceiling; the real budget scales with viewport area
+    const NODES_PER_PX = 1 / 58;
+    const GROWTH_FRAMES = 240; // ~4s reveal, independent of viewport size
+    const MAX_STEPS_PER_FRAME = 12; // cap the early phase, when a step adds ~4 nodes
+    const MAX_W = 3.4; // widest trunk stroke
+    const LEVELS = 10; // width buckets — the tree is drawn one stroke() per bucket
+    const PULSE_AFTER = 900; // start signal traffic once the tree has this many nodes
+
+    type Node = {
+      x: number; y: number; parent: number; depth: number;
+      dx: number; dy: number; n: number; kids: number; weight: number; level: number;
+    };
+
+    let W = 0, H = 0, dpr = 1;
+    let nodes: Node[] = [];
+    let attractors: { x: number; y: number }[] = [];
+    let grid = new Map<string, number[]>();
+    let roots: number[] = [];
+    let tips: number[] = [];
+    let growing = false;
+    let pulsesStarted = false;
+    let nodeBudget = MAX_NODES;
+    let growthQuota = 40;
+    let raf = 0;
+    let seedTimer = 0;
+    let colors = readColors();
+
+    const pulses: { path: number[]; head: number; speed: number; hue: string }[] = [];
+
+    function readColors() {
+      const s = getComputedStyle(document.documentElement);
+      const v = (n: string) => s.getPropertyValue(n).trim();
+      const light = document.documentElement.getAttribute('data-theme') === 'light';
+      return {
+        trunk: v('--faint') || '#545c6b',
+        tip: v('--accent') || '#ff7a33',
+        soma: v('--accent') || '#ff7a33',
+        spark: [v('--accent') || '#ff7a33', v('--math') || '#53c1b3', v('--anchor') || '#906fd5'],
+        treeAlpha: light ? 0.46 : 0.5,
+        tipAlpha: light ? 0.4 : 0.66,
+        pulseAlpha: light ? 0.5 : 0.85,
+      };
+    }
+
+    const cellKey = (x: number, y: number) =>
+      `${Math.floor(x / ATTRACT)},${Math.floor(y / ATTRACT)}`;
+
+    function addToGrid(i: number) {
+      const k = cellKey(nodes[i].x, nodes[i].y);
+      const bucket = grid.get(k);
+      if (bucket) bucket.push(i);
+      else grid.set(k, [i]);
+    }
+
+    function nearestNode(ax: number, ay: number) {
+      const cx = Math.floor(ax / ATTRACT);
+      const cy = Math.floor(ay / ATTRACT);
+      let best = -1;
+      let bestD = ATTRACT * ATTRACT;
+      for (let gx = cx - 1; gx <= cx + 1; gx++) {
+        for (let gy = cy - 1; gy <= cy + 1; gy++) {
+          const bucket = grid.get(`${gx},${gy}`);
+          if (!bucket) continue;
+          for (const i of bucket) {
+            const dx = nodes[i].x - ax;
+            const dy = nodes[i].y - ay;
+            const d = dx * dx + dy * dy;
+            if (d < bestD) { bestD = d; best = i; }
+          }
+        }
+      }
+      return { index: best, dist2: bestD };
+    }
+
+    function seed() {
+      nodes = [];
+      attractors = [];
+      grid = new Map();
+      roots = [];
+      tips = [];
+      // a phone should not grow the same 16k-node tangle as a desktop
+      nodeBudget = Math.max(3500, Math.min(MAX_NODES, Math.round(W * H * NODES_PER_PX)));
+      // Pace by nodes-added-per-frame rather than steps-per-frame: a step adds
+      // anywhere from 4 to ~40 nodes depending on how far along growth is, so
+      // only a node quota gives a predictable reveal length on any viewport.
+      growthQuota = Math.max(8, Math.round(nodeBudget / GROWTH_FRAMES));
+      pulses.length = 0;
+      pulsesStarted = false;
+
+      // attractor cloud — uniform with rejection so it doesn't clump
+      const target = Math.round((W * H) / (MIN_ATTR_GAP * MIN_ATTR_GAP * 2.6));
+      const gap2 = MIN_ATTR_GAP * MIN_ATTR_GAP;
+      const abin = new Map<string, { x: number; y: number }[]>();
+      const akey = (x: number, y: number) =>
+        `${Math.floor(x / MIN_ATTR_GAP)},${Math.floor(y / MIN_ATTR_GAP)}`;
+
+      for (let attempt = 0; attempt < target * 12 && attractors.length < target; attempt++) {
+        const x = Math.random() * W;
+        const y = Math.random() * H;
+        let ok = true;
+        const bx = Math.floor(x / MIN_ATTR_GAP);
+        const by = Math.floor(y / MIN_ATTR_GAP);
+        outer: for (let i = bx - 1; i <= bx + 1; i++) {
+          for (let j = by - 1; j <= by + 1; j++) {
+            const b = abin.get(`${i},${j}`);
+            if (!b) continue;
+            for (const p of b) {
+              const dx = p.x - x, dy = p.y - y;
+              if (dx * dx + dy * dy < gap2) { ok = false; break outer; }
+            }
+          }
+        }
+        if (!ok) continue;
+        const p = { x, y };
+        attractors.push(p);
+        const k = akey(x, y);
+        const b = abin.get(k);
+        if (b) b.push(p); else abin.set(k, [p]);
+      }
+
+      // somas, scattered but kept off the reading column
+      const count = W < 760 ? 2 : W < 1300 ? 3 : 4;
+      for (let i = 0; i < count; i++) {
+        const x = W * (0.34 + 0.6 * (i + 0.5) / count) + (Math.random() - 0.5) * W * 0.12;
+        const y = H * (0.16 + 0.68 * Math.random());
+        nodes.push({
+          x: Math.min(W - 12, Math.max(12, x)),
+          y, parent: -1, depth: 0, dx: 0, dy: 0, n: 0, kids: 0, weight: 1, level: 0,
+        });
+        roots.push(nodes.length - 1);
+        addToGrid(nodes.length - 1);
+      }
+      growing = true;
+    }
+
+    function grow() {
+      if (!growing) return;
+      let sprouted = false;
+      const startCount = nodes.length;
+
+      for (let s = 0; s < MAX_STEPS_PER_FRAME; s++) {
+        if (!attractors.length || nodes.length >= nodeBudget) { growing = false; break; }
+
+        const consumed: number[] = [];
+        for (let a = 0; a < attractors.length; a++) {
+          const { x, y } = attractors[a];
+          const { index, dist2 } = nearestNode(x, y);
+          if (index < 0) continue;
+          if (dist2 < KILL * KILL) { consumed.push(a); continue; }
+          const n = nodes[index];
+          const d = Math.sqrt(dist2);
+          n.dx += (x - n.x) / d;
+          n.dy += (y - n.y) / d;
+          n.n++;
+        }
+        for (let i = consumed.length - 1; i >= 0; i--) attractors.splice(consumed[i], 1);
+
+        const parentCount = nodes.length;
+        for (let i = 0; i < parentCount; i++) {
+          const n = nodes[i];
+          if (n.n === 0) continue;
+          let vx = n.dx / n.n;
+          let vy = n.dy / n.n;
+          const len = Math.hypot(vx, vy) || 1;
+          vx = vx / len + (Math.random() - 0.5) * JITTER;
+          vy = vy / len + (Math.random() - 0.5) * JITTER;
+          const l2 = Math.hypot(vx, vy) || 1;
+          const nx = n.x + (vx / l2) * SEG;
+          const ny = n.y + (vy / l2) * SEG;
+          n.dx = n.dy = 0; n.n = 0; n.kids++;
+
+          nodes.push({
+            x: nx, y: ny, parent: i, depth: n.depth + 1,
+            dx: 0, dy: 0, n: 0, kids: 0, weight: 1, level: 0,
+          });
+          const ci = nodes.length - 1;
+          addToGrid(ci);
+          sprouted = true;
+        }
+
+        if (nodes.length - startCount >= growthQuota) break;
+      }
+
+      if (!sprouted) growing = false;
+
+      // let signals start flowing before growth finishes, so activity fades in
+      if (!pulsesStarted && !reduced.matches && nodes.length > PULSE_AFTER) {
+        pulsesStarted = true;
+        schedulePulse();
+      }
+      if (!growing) finish();
+    }
+
+    /**
+     * Branch thickness follows subtree size, and subtree size changes on every
+     * sprout — so weights are recomputed and the tree fully redrawn each frame.
+     * Both passes are linear, and the draw is batched into LEVELS width buckets
+     * (one stroke() each) rather than one stroke() per segment, which keeps a
+     * 16k-node tree well inside a frame.
+     */
+    function computeWeights() {
+      for (let i = 0; i < nodes.length; i++) nodes[i].weight = 1;
+      for (let i = nodes.length - 1; i > 0; i--) {
+        const p = nodes[i].parent;
+        if (p >= 0) nodes[p].weight += nodes[i].weight;
+      }
+      const span = MAX_W - 0.5;
+      for (let i = 0; i < nodes.length; i++) {
+        const w = Math.min(MAX_W, 0.5 + Math.pow(nodes[i].weight, 0.42) * 0.34);
+        nodes[i].level = Math.min(LEVELS - 1, ((w - 0.5) / span * LEVELS) | 0);
+      }
+    }
+
+    function drawTree() {
+      tctx.clearRect(0, 0, W, H);
+      tctx.lineCap = 'round';
+      tctx.lineJoin = 'round';
+
+      const span = MAX_W - 0.5;
+      for (let lv = LEVELS - 1; lv >= 0; lv--) {
+        let any = false;
+        tctx.beginPath();
+        for (let i = 1; i < nodes.length; i++) {
+          const n = nodes[i];
+          if (n.level !== lv || n.parent < 0) continue;
+          const p = nodes[n.parent];
+          tctx.moveTo(p.x, p.y);
+          tctx.lineTo(n.x, n.y);
+          any = true;
+        }
+        if (!any) continue;
+
+        // thin = tip = accent-tinted; thick = trunk = muted
+        const tip = LEVELS > 1 ? 1 - lv / (LEVELS - 1) : 1;
+        tctx.strokeStyle = mix(colors.trunk, colors.tip, tip * tip);
+        tctx.globalAlpha = colors.treeAlpha + (colors.tipAlpha - colors.treeAlpha) * tip;
+        tctx.lineWidth = 0.5 + ((lv + 0.5) / LEVELS) * span;
+        tctx.stroke();
+      }
+
+      // somas
+      for (const r of roots) {
+        const n = nodes[r];
+        tctx.globalAlpha = 0.5;
+        tctx.fillStyle = colors.soma;
+        tctx.beginPath();
+        tctx.arc(n.x, n.y, 3.4, 0, Math.PI * 2);
+        tctx.fill();
+        tctx.globalAlpha = 0.14;
+        tctx.beginPath();
+        tctx.arc(n.x, n.y, 11, 0, Math.PI * 2);
+        tctx.fill();
+      }
+      tctx.globalAlpha = 1;
+    }
+
+    /* growth is over: record the real tip list for pulse routing */
+    function finish() {
+      tips = nodes.reduce<number[]>((acc, n, i) => (n.kids === 0 ? (acc.push(i), acc) : acc), []);
+      if (!reduced.matches && !pulsesStarted) {
+        pulsesStarted = true;
+        schedulePulse();
+      }
+    }
+
+    /* ── pulses ────────────────────────────────────────────────────── */
+
+    function schedulePulse() {
+      clearTimeout(seedTimer);
+      seedTimer = window.setTimeout(() => {
+        if (pulses.length < 5 && nodes.length > PULSE_AFTER) spawnPulse();
+        schedulePulse();
+      }, 520 + Math.random() * 1100);
+    }
+
+    /** A leaf to route a pulse to. During growth `tips` is not built yet, so
+     *  sample the node list for a deep-enough leaf instead. */
+    function randomTip() {
+      if (tips.length) return tips[(Math.random() * tips.length) | 0];
+      for (let k = 0; k < 40; k++) {
+        const i = (Math.random() * nodes.length) | 0;
+        if (nodes[i].kids === 0 && nodes[i].depth >= 24) return i;
+      }
+      return -1;
+    }
+
+    function spawnPulse() {
+      const tip = randomTip();
+      if (tip < 0) return;
+      const path: number[] = [];
+      for (let i = tip; i >= 0; i = nodes[i].parent) path.push(i);
+      path.reverse(); // root → tip
+      if (path.length < 24) return;
+      pulses.push({
+        path,
+        head: 0,
+        speed: 1.5 + Math.random() * 1.8,
+        hue: colors.spark[(Math.random() * colors.spark.length) | 0],
+      });
+    }
+
+    function drawPulses() {
+      pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      pctx.clearRect(0, 0, W, H);
+      pctx.lineCap = 'round';
+
+      for (let p = pulses.length - 1; p >= 0; p--) {
+        const pulse = pulses[p];
+        pulse.head += pulse.speed;
+        const head = Math.floor(pulse.head);
+        if (head - 46 > pulse.path.length) { pulses.splice(p, 1); continue; }
+
+        const tail = Math.max(1, head - 46);
+        const stop = Math.min(head, pulse.path.length - 1);
+        for (let i = tail; i <= stop; i++) {
+          const t = (i - tail) / Math.max(1, stop - tail);
+          const a = trailEase(t);
+          const from = nodes[pulse.path[i - 1]];
+          const to = nodes[pulse.path[i]];
+          pctx.strokeStyle = pulse.hue;
+          pctx.globalAlpha = a * colors.pulseAlpha;
+          pctx.lineWidth = 0.7 + a * 1.9;
+          pctx.beginPath();
+          pctx.moveTo(from.x, from.y);
+          pctx.lineTo(to.x, to.y);
+          pctx.stroke();
+        }
+        pctx.globalAlpha = 1;
+      }
+    }
+
+    // trail envelope: dim tail, bright head
+    const trailEase = (t: number) => Math.pow(t, 2.4);
+
+    /* ── colour helper ─────────────────────────────────────────────── */
+
+    function toRgb(c: string): [number, number, number] {
+      c = c.trim();
+      if (c.startsWith('#')) {
+        const h = c.length === 4
+          ? c[1] + c[1] + c[2] + c[2] + c[3] + c[3]
+          : c.slice(1);
+        const n = parseInt(h, 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      }
+      const m = c.match(/[\d.]+/g);
+      return m ? [+m[0], +m[1], +m[2]] : [128, 128, 128];
+    }
+
+    function mix(a: string, b: string, t: number) {
+      const A = toRgb(a), B = toRgb(b);
+      return `rgb(${Math.round(A[0] + (B[0] - A[0]) * t)},${Math.round(
+        A[1] + (B[1] - A[1]) * t
+      )},${Math.round(A[2] + (B[2] - A[2]) * t)})`;
+    }
+
+    /* ── loop / lifecycle ──────────────────────────────────────────── */
+
+    function frame() {
+      raf = requestAnimationFrame(frame);
+      if (growing) {
+        grow();
+        computeWeights();
+        drawTree(); // thickness creeps up with the tree instead of snapping at the end
+      }
+      if (pulses.length) drawPulses();
+    }
+
+    function start() {
+      cancelAnimationFrame(raf);
+      if (reduced.matches) {
+        // build the whole tree in one go, no animation
+        while (growing) grow();
+        computeWeights();
+        drawTree();
+        return;
+      }
+      raf = requestAnimationFrame(frame);
+    }
+
+    /**
+     * Size is driven by a ResizeObserver rather than `window.resize`: on first
+     * paint — and in a background tab — the host can still measure 0×0, and we
+     * must not seed a tree into nothing.
+     */
+    let appliedW = 0;
+    let appliedH = 0;
+    let resizeTimer = 0;
+
+    function applySize() {
+      const w = host.clientWidth;
+      const h = host.clientHeight;
+      if (w < 2 || h < 2) return; // not laid out yet — the observer will call back
+
+      // once a tree exists, ignore the small deltas mobile browsers emit when
+      // the URL bar shows or hides
+      if (nodes.length > roots.length &&
+          Math.abs(w - appliedW) < 60 && Math.abs(h - appliedH) < 160) return;
+
+      appliedW = w; appliedH = h;
+      W = w; H = h;
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+
+      for (const c of [treeCanvas, pulseCanvas]) {
+        c.width = Math.round(W * dpr);
+        c.height = Math.round(H * dpr);
+      }
+      tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      tctx.clearRect(0, 0, W, H);
+      pctx.clearRect(0, 0, W, H);
+      tctx.lineCap = 'round';
+      tctx.lineJoin = 'round';
+
+      seed();
+      start();
+    }
+
+    const scheduleResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(applySize, appliedW ? 220 : 0);
+    };
+
+    new ResizeObserver(scheduleResize).observe(host);
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        cancelAnimationFrame(raf);
+        clearTimeout(seedTimer);
+        return;
+      }
+      applySize(); // may never have had a size while hidden
+      if (reduced.matches) return;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(frame);
+      // the pulse chain was cancelled when we went hidden — restart it
+      if (nodes.length > roots.length) {
+        pulsesStarted = true;
+        schedulePulse();
+      }
+    });
+
+    // repaint in the new palette when the theme flips
+    document.addEventListener('themechange', () => {
+      colors = readColors();
+      if (!growing) { computeWeights(); drawTree(); }
+    });
+
+    applySize();
+  }
+</script>

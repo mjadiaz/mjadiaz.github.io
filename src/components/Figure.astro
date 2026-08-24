@@ -1,0 +1,47 @@
+---
+import { Image } from 'astro:assets';
+
+/**
+ * Image with a caption. `src` is an imported asset, so Astro emits responsive
+ * webp at build time. Pass `href` to link out to a full-resolution copy.
+ */
+interface Props {
+  src: ImageMetadata;
+  alt: string;
+  caption?: string;
+  href?: string;
+  widths?: number[];
+}
+
+const { src, alt, caption, href, widths = [640, 960, 1400] } = Astro.props;
+const sizes = '(min-width: 1100px) 700px, 100vw';
+---
+
+<figure>
+  {href ? (
+    <a href={href} target="_blank" rel="noopener" class="zoom">
+      <Image src={src} alt={alt} widths={widths} sizes={sizes} />
+    </a>
+  ) : (
+    <Image src={src} alt={alt} widths={widths} sizes={sizes} />
+  )}
+  {caption && (
+    <figcaption>
+      {caption}
+      {href && <> · <a href={href} target="_blank" rel="noopener">full size ↗</a></>}
+    </figcaption>
+  )}
+</figure>
+
+<style>
+  img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--panel);
+  }
+  .zoom { display: block; }
+  .zoom:hover img { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+</style>

@@ -1,0 +1,25 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getTags } from '../../lib/posts';
+import { site } from '../../data/site';
+
+const tags = await getTags();
+---
+
+<Base title="Tags" description={`Post tags on ${site.name}'s site.`} bar={`${site.short} / tags`}>
+  <p class="eyebrow">{tags.length} {tags.length === 1 ? 'tag' : 'tags'}</p>
+  <h1>Tags</h1>
+
+  {tags.length === 0 ? (
+    <p class="empty">No tags yet.</p>
+  ) : (
+    <div class="stack" style="margin-top:26px">
+      {tags.map((t) => (
+        <a class="card" href={`/tags/${t.slug}`} style="display:flex;align-items:center;gap:12px">
+          <span class="tag tag--on">{t.tag}</span>
+          <span class="meta">{t.count} {t.count === 1 ? 'post' : 'posts'}</span>
+        </a>
+      ))}
+    </div>
+  )}
+</Base>

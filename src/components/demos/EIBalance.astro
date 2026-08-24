@@ -1,0 +1,165 @@
+---
+/** Interactive Wilson–Cowan E/I pair. Drop into any post with <EIBalance />. */
+---
+
+<figure class="demo" data-ei>
+  <canvas data-plot height="240"></canvas>
+
+  <div class="ctl">
+    <label>
+      <span>inhibitory gain <code data-out="wei">2.60</code></span>
+      <input type="range" data-in="wei" min="0" max="6" step="0.05" value="2.6" />
+    </label>
+    <label>
+      <span>external drive <code data-out="ext">1.20</code></span>
+      <input type="range" data-in="ext" min="0" max="4" step="0.05" value="1.2" />
+    </label>
+    <button type="button" data-act="reset">reset</button>
+  </div>
+
+  <figcaption>
+    Two coupled rate populations. Raise the inhibitory gain to damp the excitatory
+    runaway; lower it and the network saturates.
+    <span style="color:var(--accent)">■</span> excitatory ·
+    <span style="color:var(--link)">■</span> inhibitory
+  </figcaption>
+</figure>
+
+<style>
+  .demo { margin: 2em 0; }
+  canvas {
+    width: 100%;
+    display: block;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--panel);
+  }
+  .ctl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 22px;
+    align-items: end;
+    margin-top: 14px;
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+  }
+  .ctl label { display: grid; gap: 5px; flex: 1 1 190px; color: var(--muted); }
+  .ctl code { color: var(--code); background: none; padding: 0; }
+  input[type='range'] { width: 100%; accent-color: var(--accent); }
+  button {
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  button:hover { color: var(--accent); border-color: var(--accent); }
+</style>
+
+<script>
+  type Ctx = CanvasRenderingContext2D;
+
+  document.querySelectorAll<HTMLElement>('[data-ei]').forEach((root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>('[data-plot]')!;
+    const ctx = canvas.getContext('2d')!;
+    const inputs = {
+      wei: root.querySelector<HTMLInputElement>('[data-in="wei"]')!,
+      ext: root.querySelector<HTMLInputElement>('[data-in="ext"]')!,
+    };
+    const outs = {
+      wei: root.querySelector<HTMLElement>('[data-out="wei"]')!,
+      ext: root.querySelector<HTMLElement>('[data-out="ext"]')!,
+    };
+
+    // Wilson–Cowan constants
+    const TAU_E = 12, TAU_I = 18, W_EE = 3.2, W_IE = 3.0, W_II = 1.0, DT = 0.55;
+    const f = (x: number) => 1 / (1 + Math.exp(-(x - 1.2) / 0.42));
+
+    const N = 320;
+    let E = 0.12, I = 0.08;
+    const traceE: number[] = [], traceI: number[] = [];
+    let raf = 0, dpr = 1, W = 0, H = 240;
+
+    const css = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+    function resize() {
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = canvas.clientWidth;
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function step() {
+      const wEI = +inputs.wei.value;
+      const ext = +inputs.ext.value;
+      // a little noise so the trace never looks perfectly dead
+      const nE = (Math.random() - 0.5) * 0.02;
+      E += (DT / TAU_E) * (-E + f(W_EE * E - wEI * I + ext)) + nE;
+      I += (DT / TAU_I) * (-I + f(W_IE * E - W_II * I));
+      E = Math.min(1.05, Math.max(0, E));
+      I = Math.min(1.05, Math.max(0, I));
+      traceE.push(E); traceI.push(I);
+      if (traceE.length > N) { traceE.shift(); traceI.shift(); }
+    }
+
+    function line(trace: number[], color: string, width: number) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      trace.forEach((v, i) => {
+        const x = (i / (N - 1)) * W;
+        const y = H - 18 - (v / 1.1) * (H - 34);
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      ctx.strokeStyle = css('--line');
+      ctx.lineWidth = 1;
+      for (let g = 0; g <= 4; g++) {
+        const y = 16 + (g / 4) * (H - 34);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+      line(traceI, css('--link'), 1.6);
+      line(traceE, css('--accent'), 2.1);
+    }
+
+    function frame() {
+      raf = requestAnimationFrame(frame);
+      for (let k = 0; k < 2; k++) step();
+      draw();
+    }
+
+    const sync = () => {
+      outs.wei.textContent = (+inputs.wei.value).toFixed(2);
+      outs.ext.textContent = (+inputs.ext.value).toFixed(2);
+    };
+    inputs.wei.addEventListener('input', sync);
+    inputs.ext.addEventListener('input', sync);
+    root.querySelector('[data-act="reset"]')?.addEventListener('click', () => {
+      inputs.wei.value = '2.6'; inputs.ext.value = '1.2';
+      E = 0.12; I = 0.08; traceE.length = 0; traceI.length = 0;
+      sync();
+    });
+
+    window.addEventListener('resize', resize);
+
+    // only run while on screen
+    const io = new IntersectionObserver(([entry]) => {
+      cancelAnimationFrame(raf);
+      if (entry.isIntersecting && !document.hidden) raf = requestAnimationFrame(frame);
+    }, { threshold: 0.05 });
+    io.observe(root);
+
+    sync();
+    resize();
+  });
+</script>

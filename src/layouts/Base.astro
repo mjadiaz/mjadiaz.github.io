@@ -1,0 +1,77 @@
+---
+import '../styles/global.css';
+import { site } from '../data/site';
+import Rail from '../components/Rail.astro';
+import TopBar from '../components/TopBar.astro';
+import GrowthBackground from '../components/GrowthBackground.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Shown in the sticky top bar; defaults to `title`. */
+  bar?: string;
+  math?: boolean;
+  wide?: boolean;
+}
+
+const { title, description = site.description, bar, math = false, wide = false } = Astro.props;
+const pageTitle = title === site.name ? site.name : `${title} · ${site.name}`;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? site.url).href;
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="alternate" type="application/rss+xml" title={site.name} href="/rss.xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+    {math && <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />}
+
+    <script is:inline>
+      // Set the theme before first paint. Dark is the default; an explicit
+      // choice in localStorage wins, otherwise we follow the OS only if it
+      // asks for light.
+      (function () {
+        try {
+          var saved = localStorage.getItem('theme');
+          if (saved === 'light' || saved === 'dark') {
+            document.documentElement.setAttribute('data-theme', saved);
+          } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+
+  <body>
+    <GrowthBackground />
+
+    <div class="shell">
+      <Rail />
+      <main class="main">
+        <TopBar title={bar ?? title} />
+        <div class:list={['wrap', wide && 'wrap--wide']}>
+          <slot />
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

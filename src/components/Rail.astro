@@ -1,0 +1,92 @@
+---
+import { site } from '../data/site';
+import { publications } from '../data/publications';
+import { getPosts, getTags } from '../lib/posts';
+
+const posts = (await getPosts()).slice(0, 5);
+const tags = await getTags();
+
+const path = Astro.url.pathname.replace(/\/+$/, '') || '/';
+const on = (href: string) =>
+  href === '/' ? path === '/' : path === href || path.startsWith(href + '/');
+
+const nav = [
+  { href: '/', label: 'Home' },
+  { href: '/blog', label: 'Blog' },
+  { href: '/publications', label: 'Papers' },
+  { href: '/events', label: 'Events' },
+  { href: '/about', label: 'About' },
+];
+---
+
+<nav class="rail" id="rail" aria-label="Site">
+  <a class="rail__brand" href="/">
+    <div class="rail__name">{site.name}</div>
+    <div class="rail__role">{site.role}</div>
+  </a>
+
+  <div class="rail__pills">
+    {nav.map((item) => (
+      <a class="pill" href={item.href} aria-current={on(item.href) ? 'page' : undefined}>
+        {item.label}
+      </a>
+    ))}
+  </div>
+
+  <section class="rail__group">
+    <h2 class="rail__head">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+      </svg>
+      Recent
+      <span class="rail__count">{posts.length}</span>
+    </h2>
+    {posts.length === 0 && <p class="rail__item empty">No posts yet</p>}
+    {posts.map((post) => (
+      <a
+        class="rail__item"
+        href={`/blog/${post.id}`}
+        aria-current={path === `/blog/${post.id}` ? 'page' : undefined}
+        title={post.data.title}
+      >
+        {post.data.title}
+      </a>
+    ))}
+  </section>
+
+  {tags.length > 0 && (
+    <section class="rail__group">
+      <h2 class="rail__head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M3 11V4h7l10 10-7 7L3 11Z" /><circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" />
+        </svg>
+        <a href="/tags" style="color:inherit">Tags</a>
+        <span class="rail__count">{tags.length}</span>
+      </h2>
+      <div class="rail__tags">
+        {tags.map((t) => (
+          <a class="tag" href={`/tags/${t.slug}`}>{t.tag}</a>
+        ))}
+      </div>
+    </section>
+  )}
+
+  <section class="rail__group">
+    <h2 class="rail__head">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M4 19V5a1 1 0 0 1 1-1h11l4 4v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z" /><path d="M8 12h8M8 16h5" />
+      </svg>
+      <a href="/publications" style="color:inherit">Publications</a>
+      <span class="rail__count">{publications.length}</span>
+    </h2>
+    {publications.map((p) => (
+      <a class="rail__item" href="/publications" title={p.title}>
+        <span class="meta" style="margin-right:7px">{p.year}</span>{p.title}
+      </a>
+    ))}
+  </section>
+
+  <div class="rail__foot">
+    {[...site.profiles, ...site.extras].map((l) => <a href={l.href}>{l.label}</a>)}
+  </div>
+</nav>

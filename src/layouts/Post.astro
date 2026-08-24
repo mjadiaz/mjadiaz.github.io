@@ -1,0 +1,34 @@
+---
+import Base from './Base.astro';
+import { fmtDate, isoDate, tagSlug, type Post } from '../lib/posts';
+import { site } from '../data/site';
+
+interface Props { post: Post }
+const { post } = Astro.props;
+const { title, description, date, updated, tags, math } = post.data;
+---
+
+<Base title={title} description={description} bar={`${site.short} / blog`} math={math}>
+  <article class="prose">
+    <p class="eyebrow">
+      <time datetime={isoDate(date)}>{fmtDate(date)}</time>
+      {updated && <> · updated {fmtDate(updated)}</>}
+    </p>
+
+    <h1>{title}</h1>
+    <p class="lead" style="color:var(--muted)">{description}</p>
+
+    {tags.length > 0 && (
+      <p style="display:flex;gap:6px;flex-wrap:wrap;margin:18px 0 0">
+        {tags.map((t) => <a class="tag" href={`/tags/${tagSlug(t)}`}>{t}</a>)}
+      </p>
+    )}
+
+    <hr />
+
+    <slot />
+  </article>
+
+  <hr />
+  <p><a href="/blog">← All posts</a></p>
+</Base>

@@ -1,0 +1,31 @@
+---
+import Base from '../../layouts/Base.astro';
+import PostCard from '../../components/PostCard.astro';
+import { getPosts, getTags } from '../../lib/posts';
+import { site } from '../../data/site';
+
+const posts = await getPosts();
+const tags = await getTags();
+---
+
+<Base title="Blog" description={`Notes and posts by ${site.name} on computational neuroscience, machine learning and physics.`} bar={`${site.short} / blog`}>
+  <p class="eyebrow">{posts.length} {posts.length === 1 ? 'post' : 'posts'}</p>
+  <h1>Blog</h1>
+  <p class="lead" style="color:var(--muted)">
+    Notes on neural circuits, learning rules and the maths underneath them.
+  </p>
+
+  {tags.length > 0 && (
+    <p style="display:flex;gap:6px;flex-wrap:wrap;margin:22px 0 0">
+      {tags.map((t) => <a class="tag" href={`/tags/${t.slug}`}>{t.tag} <span style="opacity:.65">{t.count}</span></a>)}
+    </p>
+  )}
+
+  <hr />
+
+  {posts.length === 0 ? (
+    <p class="empty">Nothing published yet.</p>
+  ) : (
+    <div class="stack">{posts.map((post) => <PostCard post={post} />)}</div>
+  )}
+</Base>
