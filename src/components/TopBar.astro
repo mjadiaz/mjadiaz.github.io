@@ -46,18 +46,28 @@ const { title } = Astro.props;
 
   // mobile drawer
   const menuBtn = document.getElementById('menu-btn');
-  const closeNav = () => {
-    document.body.classList.remove('nav-open');
-    menuBtn?.setAttribute('aria-expanded', 'false');
+  const scrim = document.getElementById('scrim');
+  const rail = document.getElementById('rail');
+
+  const setNav = (open: boolean) => {
+    document.body.classList.toggle('nav-open', open);
+    menuBtn?.setAttribute('aria-expanded', String(open));
   };
-  menuBtn?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const open = document.body.classList.toggle('nav-open');
-    menuBtn.setAttribute('aria-expanded', String(open));
+
+  menuBtn?.addEventListener('click', () => {
+    setNav(!document.body.classList.contains('nav-open'));
   });
-  document.addEventListener('click', (e) => {
-    if (!document.body.classList.contains('nav-open')) return;
-    if (!(e.target as Element)?.closest('#rail')) closeNav();
+
+  scrim?.addEventListener('click', () => setNav(false));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setNav(false); });
+
+  // in-page links would otherwise leave the drawer sitting open
+  rail?.addEventListener('click', (e) => {
+    if ((e.target as Element)?.closest('a')) setNav(false);
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeNav(); });
+
+  // widening past the breakpoint turns the drawer back into the static rail;
+  // drop the flag so shrinking again does not reopen it
+  const mobile = window.matchMedia('(max-width: 900px)');
+  mobile.addEventListener('change', (e) => { if (!e.matches) setNav(false); });
 </script>

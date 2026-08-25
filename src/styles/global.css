@@ -149,33 +149,56 @@ img, video, canvas, svg { max-width: 100%; height: auto; }
 a.rail__brand:hover { text-decoration: none; }
 a.rail__brand:hover .rail__name { color: var(--accent); }
 
-/* nav pills — mirrors the app's segmented control */
-.rail__pills {
+/* primary nav — a single pill slides between rows rather than each row
+   toggling its own background, so the movement reads as one object */
+.nav {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  padding: 4px;
-  margin-bottom: 20px;
-  background: color-mix(in srgb, var(--bg) 55%, transparent);
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
+  gap: 2px;
+  margin-bottom: 22px;
 }
-.pill {
-  text-align: center;
-  padding: 5px 10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  border-radius: var(--r-pill);
-  font-size: 0.8rem;
-  font-weight: 700;
+
+.nav__pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  border-radius: var(--r-md);
+  background: var(--accent);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease;
+}
+
+.nav__item {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.3;
   color: var(--muted);
   white-space: nowrap;
+  transition: color 0.22s ease;
 }
-.pill:hover { color: var(--text); text-decoration: none; }
-.pill[aria-current='page'] {
-  background: var(--accent);
-  color: var(--on-accent);
-}
+.nav__item:hover { text-decoration: none; }
+.nav__item svg { flex: none; opacity: 0.75; transition: opacity 0.22s ease; }
+
+/* whichever row the pill is currently behind */
+.nav__item.is-lit { color: var(--on-accent); font-weight: 700; }
+.nav__item.is-lit svg { opacity: 1; }
+
+/* no JS: fall back to a plain highlight on the current page */
+.nav__item[aria-current='page']:not(.is-lit) { color: var(--text); }
+.nav__item[aria-current='page']:not(.is-lit) svg { opacity: 1; }
 
 .rail__group { margin-bottom: 18px; }
 .rail__head {
@@ -504,25 +527,55 @@ a.card:hover .post-item__title { color: var(--accent); }
 
 /* ── Responsive ───────────────────────────────────────────────────────── */
 
+/*
+ * Drawer scrim. This is a real element inside `.shell`, not a `body::after`
+ * pseudo-element, for two reasons:
+ *   1. `.shell` has `z-index: 1`, which makes it a stacking context — anything
+ *      painted from `body` sits above the whole shell no matter what z-index
+ *      the rail claims, so a body-level scrim covers the drawer it is meant to
+ *      sit behind and swallows every tap inside it.
+ *   2. A pseudo-element targets `body`, and iOS Safari does not reliably bubble
+ *      taps from non-interactive elements up to a document-level listener.
+ */
+.scrim { display: none; }
+
 @media (max-width: 900px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
+
+  /* above the drawer, so the hamburger stays a real toggle while it is open */
+  .topbar { z-index: 50; }
+
   .rail {
     position: fixed;
     z-index: 40;
-    top: 0; left: 0; bottom: 0;
+    top: var(--topbar);
+    left: 0;
+    /* explicit height rather than top+bottom: dvh also tracks the mobile URL
+       bar, so the drawer does not get clipped when it shows or hides */
+    height: calc(100vh - var(--topbar));
+    height: calc(100dvh - var(--topbar));
     width: min(300px, 86vw);
     transform: translateX(-102%);
     transition: transform 0.22s ease;
     background: var(--panel);
   }
   body.nav-open .rail { transform: none; }
-  body.nav-open::after {
-    content: '';
+
+  .scrim {
+    display: block;
     position: fixed;
     inset: 0;
     z-index: 30;
     background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
   }
+  body.nav-open .scrim { opacity: 1; pointer-events: auto; }
+
+  /* stop the page behind the drawer scrolling under it */
+  body.nav-open { overflow: hidden; }
+
   .iconbtn--menu { display: inline-grid; }
   .wrap { padding: 30px 20px 80px; }
   .ev { grid-template-columns: minmax(0, 1fr); gap: 5px; }

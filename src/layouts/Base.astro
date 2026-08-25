@@ -65,6 +65,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? site.url).href;
     <GrowthBackground />
 
     <div class="shell">
+      <div class="scrim" id="scrim" aria-hidden="true"></div>
       <Rail />
       <main class="main">
         <TopBar title={bar ?? title} />

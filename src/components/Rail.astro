@@ -1,5 +1,6 @@
 ---
 import { site } from '../data/site';
+import Icon from './Icon.astro';
 import { publications } from '../data/publications';
 import { getPosts, getTags } from '../lib/posts';
 
@@ -11,12 +12,12 @@ const on = (href: string) =>
   href === '/' ? path === '/' : path === href || path.startsWith(href + '/');
 
 const nav = [
-  { href: '/', label: 'Home' },
-  { href: '/blog', label: 'Blog' },
-  { href: '/publications', label: 'Papers' },
-  { href: '/events', label: 'Events' },
-  { href: '/about', label: 'About' },
-];
+  { href: '/', label: 'Home', icon: 'home' },
+  { href: '/blog', label: 'Blog', icon: 'blog' },
+  { href: '/publications', label: 'Papers', icon: 'papers' },
+  { href: '/events', label: 'Events', icon: 'events' },
+  { href: '/about', label: 'About', icon: 'about' },
+] as const;
 ---
 
 <nav class="rail" id="rail" aria-label="Site">
@@ -25,10 +26,17 @@ const nav = [
     <div class="rail__role">{site.role}</div>
   </a>
 
-  <div class="rail__pills">
+  <div class="nav" data-nav>
+    <span class="nav__pill" data-nav-pill aria-hidden="true"></span>
     {nav.map((item) => (
-      <a class="pill" href={item.href} aria-current={on(item.href) ? 'page' : undefined}>
-        {item.label}
+      <a
+        class="nav__item"
+        href={item.href}
+        data-nav-item
+        aria-current={on(item.href) ? 'page' : undefined}
+      >
+        <Icon name={item.icon} size={17} />
+        <span>{item.label}</span>
       </a>
     ))}
   </div>
@@ -90,3 +98,56 @@ const nav = [
     {[...site.profiles, ...site.extras].map((l) => <a href={l.href}>{l.label}</a>)}
   </div>
 </nav>
+
+<script>
+  /**
+   * Sliding nav indicator. The filled pill is one element that translates
+   * between rows rather than a background toggled per item, so movement reads
+   * as a single object rather than a cross-fade. Hover previews the target and
+   * eases back to the current page on leave.
+   */
+  const nav = document.querySelector<HTMLElement>('[data-nav]');
+  const pill = document.querySelector<HTMLElement>('[data-nav-pill]');
+
+  if (nav && pill) {
+    const items = [...nav.querySelectorAll<HTMLAnchorElement>('[data-nav-item]')];
+    const current = items.find((el) => el.getAttribute('aria-current') === 'page');
+
+    const moveTo = (target: HTMLElement | undefined) => {
+      // clear first: on pages with no matching nav item the pill hides, and a
+      // stale `is-lit` would leave on-accent text with nothing behind it
+      items.forEach((el) => el.classList.toggle('is-lit', el === target));
+      if (!target) { pill.style.opacity = '0'; return; }
+      pill.style.opacity = '1';
+      pill.style.height = `${target.offsetHeight}px`;
+      pill.style.transform = `translateY(${target.offsetTop}px)`;
+    };
+
+    // place it before the first paint, without animating in from the corner
+    const settle = () => {
+      pill.style.transition = 'none';
+      moveTo(current);
+      void pill.offsetHeight; // flush, so the next change animates
+      pill.style.transition = '';
+    };
+
+    settle();
+    // labels shift once the webfont swaps in, which moves the row heights
+    if (document.fonts?.ready) document.fonts.ready.then(settle);
+
+    items.forEach((el) => el.addEventListener('mouseenter', () => moveTo(el)));
+    nav.addEventListener('mouseleave', () => moveTo(current));
+
+    // keyboard users get the same feedback
+    items.forEach((el) => {
+      el.addEventListener('focus', () => moveTo(el));
+      el.addEventListener('blur', () => moveTo(current));
+    });
+
+    let resizeTimer = 0;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(settle, 150);
+    });
+  }
+</script>
